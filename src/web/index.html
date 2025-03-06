@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HS Code Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .search-container {
+            margin: 20px 0;
+        }
+        #searchInput {
+            padding: 8px;
+            width: 70%;
+            margin-right: 10px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .result {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        .result:hover {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .similarity-high { background-color: #e6ffe6; }
+        .similarity-medium { background-color: #fff2e6; }
+        .similarity-low { background-color: #ffe6e6; }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            border: 1px solid red;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>HS Code Search</h1>
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Enter product description">
+        <button onclick="searchHSCode()" id="searchButton">Search</button>
+    </div>
+    <div id="loading" class="loading">Searching...</div>
+    <div id="results"></div>
+
+    <script>
+        async function searchHSCode() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const loadingDiv = document.getElementById('loading');
+            const searchButton = document.getElementById('searchButton');
+            
+            if (!query) {
+                resultsDiv.innerHTML = '<div class="error">Please enter a search term</div>';
+                return;
+            }
+            
+            // Show loading state
+            searchButton.disabled = true;
+            loadingDiv.style.display = 'block';
+            resultsDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch('http://localhost:8000/search_hscode/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const results = await response.json();
+                
+                if (results.length === 0) {
+                    resultsDiv.innerHTML = '<div class="result">No matching HS codes found</div>';
+                } else {
+                    resultsDiv.innerHTML = results.map(result => {
+                        const similarityClass = 
+                            result.similarity > 0.8 ? 'similarity-high' :
+                            result.similarity > 0.5 ? 'similarity-medium' : 'similarity-low';
+                        
+                        return `
+                            <div class="result ${similarityClass}">
+                                <h3>Code: ${result.code}</h3>
+                                <p>Description: ${result.description}</p>
+                                <p>Similarity: ${(result.similarity * 100).toFixed(2)}%</p>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            } finally {
+                // Hide loading state
+                loadingDiv.style.display = 'none';
+                searchButton.disabled = false;
+            }
+        }
+
+        // Add enter key support
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchHSCode();
+            }
+        });
+    </script>
+</body>
+</html>
